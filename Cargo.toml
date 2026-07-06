@@ -1,0 +1,19 @@
+[package]
+name = "uber-tickets"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+imap = "3.0.0-alpha.15"
+mail-parser = "0.9"
+pdf-extract = "0.7"
+icalendar = "0.16"
+object_store = { version = "0.11", features = ["aws"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+bytes = "1"
+chrono = "0.4"
+chrono-tz = "0.9"
+regex = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
