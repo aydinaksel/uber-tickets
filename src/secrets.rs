@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-const GMAIL_APP_PASSWORD_PATH: &str = "/run/secrets/gmail-app-password";
-const R2_CREDENTIALS_PATH: &str = "/run/secrets/r2-credentials";
+const GMAIL_APP_PASSWORD_CREDENTIAL: &str = "gmail-app-password";
+const R2_CREDENTIALS_CREDENTIAL: &str = "r2-credentials";
 
 pub struct GmailCredentials {
     pub username: String,
@@ -26,9 +26,10 @@ pub struct Configuration {
 
 impl Configuration {
     pub fn load() -> Result<Self> {
-        let app_password = std::fs::read_to_string(GMAIL_APP_PASSWORD_PATH)
-            .with_context(|| format!("reading {GMAIL_APP_PASSWORD_PATH}"))?;
-        let credentials = parse_environment_file(R2_CREDENTIALS_PATH)?;
+        let app_password_path = credential_path(GMAIL_APP_PASSWORD_CREDENTIAL)?;
+        let app_password = std::fs::read_to_string(&app_password_path)
+            .with_context(|| format!("reading {}", app_password_path.display()))?;
+        let credentials = parse_environment_file(&credential_path(R2_CREDENTIALS_CREDENTIAL)?)?;
 
         Ok(Self {
             gmail: GmailCredentials {
@@ -47,12 +48,19 @@ impl Configuration {
     }
 }
 
+fn credential_path(name: &str) -> Result<PathBuf> {
+    let directory = std::env::var("CREDENTIALS_DIRECTORY")
+        .context("CREDENTIALS_DIRECTORY is not set; run under systemd with LoadCredential")?;
+    Ok(PathBuf::from(directory).join(name))
+}
+
 fn read_environment(key: &str) -> Result<String> {
     std::env::var(key).with_context(|| format!("environment variable {key} is not set"))
 }
 
-fn parse_environment_file(path: &str) -> Result<HashMap<String, String>> {
-    let contents = std::fs::read_to_string(path).with_context(|| format!("reading {path}"))?;
+fn parse_environment_file(path: &Path) -> Result<HashMap<String, String>> {
+    let contents =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let entries = contents
         .lines()
         .filter_map(|line| line.split_once('='))
@@ -65,5 +73,5 @@ fn take(credentials: &HashMap<String, String>, key: &str) -> Result<String> {
     credentials
         .get(key)
         .cloned()
-        .ok_or_else(|| anyhow!("{key} missing from {R2_CREDENTIALS_PATH}"))
+        .ok_or_else(|| anyhow!("{key} missing from r2-credentials"))
 }
