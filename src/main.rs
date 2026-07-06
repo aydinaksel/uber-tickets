@@ -23,6 +23,43 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    if arguments.get(1).map(String::as_str) == Some("parse") {
+        let path = arguments
+            .get(2)
+            .ok_or_else(|| anyhow!("usage: uber-tickets parse <pdf>"))?;
+        let text = pdf_extract::extract_text(path)?;
+        for journey in gmail::parse_pdf_legs(&text)? {
+            println!(
+                "{} | {} -> {} | {}",
+                journey.ticket_number,
+                journey.origin_station,
+                journey.destination_station,
+                journey.departure
+            );
+        }
+        return Ok(());
+    }
+
+    if arguments.get(1).map(String::as_str) == Some("check") {
+        let configuration = secrets::Configuration::load()?;
+        let mut mailbox = gmail::connect(&configuration.gmail)?;
+        let tickets = mailbox.fetch_unprocessed()?;
+        for ticket in &tickets {
+            for journey in &ticket.journeys {
+                println!(
+                    "uid {} | {} | {} -> {} | {}",
+                    ticket.message_uid,
+                    journey.ticket_number,
+                    journey.origin_station,
+                    journey.destination_station,
+                    journey.departure
+                );
+            }
+        }
+        println!("{} ticket email(s) parsed", tickets.len());
+        return Ok(());
+    }
+
     let configuration = secrets::Configuration::load()?;
     let mut mailbox = gmail::connect(&configuration.gmail)?;
     let tickets = mailbox.fetch_unprocessed()?;

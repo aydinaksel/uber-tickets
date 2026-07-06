@@ -33,15 +33,28 @@ pub fn connect(credentials: &GmailCredentials) -> Result<Mailbox> {
 impl Mailbox {
     pub fn fetch_unprocessed(&mut self) -> Result<Vec<TicketEmail>> {
         let uids = self.session.uid_search(SEARCH_QUERY)?;
-        let mut tickets = Vec::with_capacity(uids.len());
+        let mut tickets = Vec::new();
         for uid in uids {
             let fetched = self.session.uid_fetch(uid.to_string(), "RFC822")?;
-            let raw = fetched
-                .iter()
-                .next()
-                .and_then(|message| message.body())
-                .ok_or_else(|| anyhow!("empty body for uid {uid}"))?;
-            tickets.push(parse_ticket(uid, raw)?);
+            let Some(raw) = fetched.iter().next().and_then(|message| message.body()) else {
+                event!(
+                    name: "uber.fetch.empty",
+                    Level::WARN,
+                    message.uid = uid,
+                    "no body for uid {{message.uid}}",
+                );
+                continue;
+            };
+            match parse_ticket(uid, raw) {
+                Ok(ticket) => tickets.push(ticket),
+                Err(error) => event!(
+                    name: "uber.parse.failed",
+                    Level::WARN,
+                    message.uid = uid,
+                    error.message = %format_args!("{error:#}"),
+                    "skipping unparseable ticket email uid {{message.uid}}",
+                ),
+            }
         }
         Ok(tickets)
     }
@@ -78,7 +91,7 @@ fn parse_ticket(uid: u32, raw: &[u8]) -> Result<TicketEmail> {
 
     let text = pdf_extract::extract_text_from_mem(&pdf_bytes)
         .with_context(|| format!("extracting text for uid {uid}"))?;
-    let journeys = parse_pdf_legs(&text)?;
+    let journeys = parse_pdf_legs(&text).with_context(|| format!("subject {subject:?}"))?;
 
     let pdf_file_name = format!(
         "{}_{}.pdf",
@@ -114,7 +127,7 @@ fn to_snake_case(value: &str) -> String {
         .join("_")
 }
 
-fn parse_pdf_legs(text: &str) -> Result<Vec<Journey>> {
+pub fn parse_pdf_legs(text: &str) -> Result<Vec<Journey>> {
     let route_pattern = Regex::new(r"(\d{2} [A-Za-z]{3} \d{4}) ([A-Z]{3}) - ([A-Z]{3})")?;
     let itinerary_pattern = Regex::new(r"(?m)^(\d{2}:\d{2}) .+\nFrom (.+)\nTo (.+)$")?;
     let ticket_number_pattern = Regex::new(r"Ticket Number (\S+)")?;
