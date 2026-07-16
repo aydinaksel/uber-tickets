@@ -4,7 +4,7 @@ use tracing::{event, Level};
 
 use crate::ticket::TicketEmail;
 
-const TICKETS_SUBDIRECTORY: &str = "Travel/Uber";
+const TICKETS_SUBDIRECTORY: &str = "travel-tickets/Uber";
 
 pub fn save_ticket(vault_directory: &Path, ticket: &TicketEmail) -> Result<()> {
     let destination_directory = vault_directory.join(TICKETS_SUBDIRECTORY);
