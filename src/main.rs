@@ -8,11 +8,11 @@ mod vault;
 use anyhow::{anyhow, Result};
 use tracing::{event, Level};
 
+const LOG_FILTER: &str = "error";
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
+    let _logging = service_telemetry::logging::init(LOG_FILTER)?;
 
     let arguments: Vec<String> = std::env::args().collect();
     if arguments.get(1).map(String::as_str) == Some("dump") {
