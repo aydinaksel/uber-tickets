@@ -15,5 +15,5 @@ chrono = "0.4"
 chrono-tz = "0.9"
 regex = "1"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+service-telemetry = { git = "https://github.com/aydinaksel/service-telemetry", tag = "v0.2.0", features = ["otlp"] }
 anyhow = "1"
